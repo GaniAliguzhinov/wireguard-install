@@ -78,20 +78,21 @@ function getHomeDirForClient() {
 	# Home directory of the user, where the client configuration will be written
 	if [ -e "/home/${CLIENT_NAME}" ]; then
 		# if $1 is a user name
-		HOME_DIR="/home/${CLIENT_NAME}"
+		HOME_DIR="/home/${CLIENT_NAME}/vpn"
 	elif [ "${SUDO_USER}" ]; then
 		# if not, use SUDO_USER
 		if [ "${SUDO_USER}" == "root" ]; then
 			# If running sudo as root
-			HOME_DIR="/root"
+			HOME_DIR="/root/vpn"
 		else
-			HOME_DIR="/home/${SUDO_USER}"
+			HOME_DIR="/home/${SUDO_USER}/vpn"
 		fi
 	else
 		# if not SUDO_USER, use /root
-		HOME_DIR="/root"
+		HOME_DIR="/root/vpn"
 	fi
 
+	mkdir -p $HOME_DIR
 	echo "$HOME_DIR"
 }
 
@@ -483,6 +484,38 @@ function uninstallWg() {
 	fi
 }
 
+function showQr() {
+        NUMBER_OF_CLIENTS=$(grep -c -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf")
+        if [[ ${NUMBER_OF_CLIENTS} == '0' ]]; then
+                echo ""
+                echo "You have no existing clients!"
+                exit 1
+        fi
+
+        echo ""
+        echo "Select the existing client you want to show QR code for"
+        grep -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d ' ' -f 3 | nl -s ') '
+        until [[ ${CLIENT_NUMBER} -ge 1 && ${CLIENT_NUMBER} -le ${NUMBER_OF_CLIENTS} ]]; do
+                if [[ ${CLIENT_NUMBER} == '1' ]]; then
+                        read -rp "Select one client [1]: " CLIENT_NUMBER
+                else
+                        read -rp "Select one client [1-${NUMBER_OF_CLIENTS}]: " CLIENT_NUMBER
+                fi
+        done
+
+        # match the selected number to a client name
+        CLIENT_NAME=$(grep -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d ' ' -f 3 | sed -n "${CLIENT_NUMBER}"p)
+
+        HOME_DIR=$(getHomeDirForClient "${CLIENT_NAME}")
+
+        if command -v qrencode &>/dev/null; then
+                echo -e "${GREEN}\nHere is your client config file as a QR Code:\n${NC}"
+                qrencode -t ansiutf8 -l L <"${HOME_DIR}/${SERVER_WG_NIC}-client-${CLIENT_NAME}.conf"
+                echo ""
+        fi
+        
+}
+
 function manageMenu() {
 	echo "Welcome to WireGuard-install!"
 	echo "The git repository is available at: https://github.com/angristan/wireguard-install"
@@ -494,9 +527,10 @@ function manageMenu() {
 	echo "   2) List all users"
 	echo "   3) Revoke existing user"
 	echo "   4) Uninstall WireGuard"
-	echo "   5) Exit"
-	until [[ ${MENU_OPTION} =~ ^[1-5]$ ]]; do
-		read -rp "Select an option [1-5]: " MENU_OPTION
+	echo "   5) Show QR code"
+	echo "   6) Exit"
+	until [[ ${MENU_OPTION} =~ ^[1-6]$ ]]; do
+		read -rp "Select an option [1-6]: " MENU_OPTION
 	done
 	case "${MENU_OPTION}" in
 	1)
@@ -512,6 +546,9 @@ function manageMenu() {
 		uninstallWg
 		;;
 	5)
+		showQr
+		;;
+	6)
 		exit 0
 		;;
 	esac
