@@ -385,14 +385,14 @@ AllowedIPs = ${CLIENT_WG_IPV4}/32,${CLIENT_WG_IPV6}/128" >>"/etc/wireguard/${SER
 }
 
 function listClients() {
-	NUMBER_OF_CLIENTS=$(grep -c -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf")
+	NUMBER_OF_CLIENTS=$(grep -c -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf" | sort)
 	if [[ ${NUMBER_OF_CLIENTS} -eq 0 ]]; then
 		echo ""
 		echo "You have no existing clients!"
 		exit 1
 	fi
 
-	grep -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d ' ' -f 3 | nl -s ') '
+	grep -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf" | sort | cut -d ' ' -f 3 | nl -s ') '
 }
 
 function revokeClient() {
@@ -485,7 +485,7 @@ function uninstallWg() {
 }
 
 function showQr() {
-        NUMBER_OF_CLIENTS=$(grep -c -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf")
+        NUMBER_OF_CLIENTS=$(grep -c -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf" | sort)
         if [[ ${NUMBER_OF_CLIENTS} == '0' ]]; then
                 echo ""
                 echo "You have no existing clients!"
@@ -494,7 +494,7 @@ function showQr() {
 
         echo ""
         echo "Select the existing client you want to show QR code for"
-        grep -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d ' ' -f 3 | nl -s ') '
+        grep -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf" | sort | cut -d ' ' -f 3 | nl -s ') '
         until [[ ${CLIENT_NUMBER} -ge 1 && ${CLIENT_NUMBER} -le ${NUMBER_OF_CLIENTS} ]]; do
                 if [[ ${CLIENT_NUMBER} == '1' ]]; then
                         read -rp "Select one client [1]: " CLIENT_NUMBER
@@ -504,12 +504,12 @@ function showQr() {
         done
 
         # match the selected number to a client name
-        CLIENT_NAME=$(grep -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d ' ' -f 3 | sed -n "${CLIENT_NUMBER}"p)
+        CLIENT_NAME=$(grep -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf" | sort | cut -d ' ' -f 3 | sed -n "${CLIENT_NUMBER}"p)
 
         HOME_DIR=$(getHomeDirForClient "${CLIENT_NAME}")
 
         if command -v qrencode &>/dev/null; then
-                echo -e "${GREEN}\nHere is your client config file as a QR Code:\n${NC}"
+          			echo -e "${GREEN}\nHere is your client config file as a QR Code (client $CLIENT_NAME):\n${NC}"
                 qrencode -t ansiutf8 -l L <"${HOME_DIR}/${SERVER_WG_NIC}-client-${CLIENT_NAME}.conf"
                 echo ""
         fi
